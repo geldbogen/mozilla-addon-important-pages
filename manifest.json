@@ -12,7 +12,7 @@
 
   "content_scripts": [
     {
-      "matches": ["*://*.mozilla.org/*"],
+      "matches": ["*://*.wikipedia.org/*"],
       "js": ["go.js"]
     }
   ]
