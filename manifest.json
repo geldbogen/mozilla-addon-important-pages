@@ -1,0 +1,20 @@
+{
+
+  "manifest_version": 2,
+  "name": "fetch wikipages",
+  "version": "1.0",
+
+  "description": "Change colors of wikipedia hyperlinks according to how important they are",
+
+  "icons": {
+
+    },
+
+  "content_scripts": [
+    {
+      "matches": ["*://*.mozilla.org/*"],
+      "js": ["go.js"]
+    }
+  ]
+
+}
