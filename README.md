@@ -28,6 +28,18 @@ The coloring rules are similar to that of item rarity coloring of recent MMO's. 
 
 ![grafik](https://user-images.githubusercontent.com/65167682/236009392-2b4535f2-a5a9-4b45-a314-6873ea22da76.png) TIER 2
 
+![grafik](https://user-images.githubusercontent.com/65167682/236009776-8af59c4d-7936-4e80-97d8-5b6d32e790fe.png) TIER 3
+
+![grafik](https://user-images.githubusercontent.com/65167682/236010003-0bcee9d2-2d46-4d84-9c25-1666c0b53e4e.png) TIER 4
+
+![grafik](https://user-images.githubusercontent.com/65167682/236010173-d56804ca-731e-438e-836c-0d28c0d8e363.png) TIER 5
+
+![grafik](https://user-images.githubusercontent.com/65167682/236010297-4d831fd0-d622-42a9-9197-6acce8c1b5c3.png) ERROR - something went wrong with fetching the data needed (mostly happens because of internal wikipedia redirects)
+
+
+
+
+
 
 
 
