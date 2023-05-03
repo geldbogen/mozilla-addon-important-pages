@@ -18,7 +18,6 @@ var sitelinksDict = new Object();
 async function feedDict(s) {
     
     // set up the wikidata API and define parameters
-    console.log(s.length);
     var querystring= `prefix schema: <http://schema.org/>
     SELECT ?url ?sitelinks WHERE {
         VALUES ?url {`+ s + `}
@@ -64,7 +63,6 @@ async function main() {
 
     // run all items through the API but splitted in bins of 40 items because limitations of request length
     while (stringArr.length != 0) {
-        console.log("stringarray length: " + stringArr.length);
         var element = ""
         while (element.length < 4500) {
             element+="<" + stringArr.shift() + "> "
