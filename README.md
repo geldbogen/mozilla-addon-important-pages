@@ -20,4 +20,6 @@ This Add-on changes the color of the hyperlink on any wikipedia article, accordi
 
 ![grafik](https://user-images.githubusercontent.com/65167682/236006700-a70d9e04-e031-47c2-9a3a-bc11854472b0.png)
 
-It follows a pattern similar to MMO rarity coloring.
+The coloring rules are similar to that of item rarity coloring of recent MMO's. This means that links get colored by the following Tiers:
+
+<span style="color:#DC2367">TIER 0</span>.
