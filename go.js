@@ -15,13 +15,13 @@ var sitelinksDict = new Object();
 
 
 
-async function feedDict(arr) {
+async function feedDict(s) {
     
     // set up the wikidata API and define parameters
-    const gigastring = arr.reduce((all, current) => all +"<" +current + "> ","");
+    console.log(s.length);
     var querystring= `prefix schema: <http://schema.org/>
     SELECT ?url ?sitelinks WHERE {
-        VALUES ?url {`+ gigastring + `}
+        VALUES ?url {`+ s + `}
         ?url schema:about ?item.
         ?item wikibase:sitelinks ?sitelinks
     } `
@@ -31,6 +31,7 @@ async function feedDict(arr) {
 
     // wait for response
     const response = await fetch(myUrl + new URLSearchParams({format: 'json', query: querystring}).toString(),{headers: new Headers(myHeaders)});
+    console.log(response)
     const data = await response.json();
 
     // feed sitelinksDict with information
@@ -52,6 +53,7 @@ async function main() {
     arr = arr.filter(link => !link.href.toLowerCase().includes("portal:"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("category:"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("help:"));   
+    // arr = arr.filter(link => !link.href.toLowerCase().includes("#"));   
 
     // create an array of strings
     var stringArr = arr.map(link => link.href); 
@@ -59,16 +61,26 @@ async function main() {
     // remove duplicates
     stringArr = [...new Set(stringArr)];
 
-    // run all items through the API but splitted in bins of 50 items because limitations of request length
-    for (let i = 0; i < (stringArr.length)/50; i++) {
-        const element = stringArr.slice(50*i,50*(i+1));
+
+    // run all items through the API but splitted in bins of 40 items because limitations of request length
+    while (stringArr.length != 0) {
+        console.log("stringarray length: " + stringArr.length);
+        var element = ""
+        while (element.length < 4500) {
+            element+="<" + stringArr.shift() + "> "
+        }
         await feedDict(element);        
     }
     //  color the links according to their sitelinks
     for (let i = 0; i < links.length; i++) {
-        if (links[i].href && sitelinksDict.hasOwnProperty(links[i].href)) 
+        if (links[i].href) 
         {
-            links[i].style.color=getColorOfNumber(sitelinksDict[links[i].href]);
+            if (sitelinksDict.hasOwnProperty(links[i].href)) {
+                links[i].style.color=getColorOfNumber(sitelinksDict[links[i].href]);
+                }
+            else {
+                links[i].style.color="#808080"
+            }
         }        
     }
 
