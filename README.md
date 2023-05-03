@@ -14,7 +14,7 @@ Which of these guys are important?
 
 ## Fear no more!!!
 
-This addon changes the color of the hyperlink on any wikipedia article, according to how important (i.e. how many transaltion the wikipedia arcticles possesses) the page is. 
+This addon changes the color of the hyperlink on any wikipedia article, according to how important (i.e. how many translation the wikipedia arcticles possesses) the page is. 
 
 ![grafik](https://user-images.githubusercontent.com/65167682/236006533-9da40937-e5ec-4a40-9fe2-396d8b9769a7.png)
 
