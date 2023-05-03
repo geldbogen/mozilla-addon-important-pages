@@ -1,7 +1,7 @@
 {
 
   "manifest_version": 2,
-  "name": "fetch wikipages",
+  "name": "wikipdedia hyperlink colorchanger",
   "version": "1.0",
 
   "description": "Change colors of wikipedia hyperlinks according to how important they are",
@@ -12,12 +12,12 @@
 
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": ["*://*.wikipedia.org/*"],
       "js": ["go.js"]
     }
   ],
   "permissions": [
-    "<all_urls>",
+    "https://query.wikidata.org/*",
     "activeTab"
   ]
 

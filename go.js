@@ -2,7 +2,7 @@
 var counter =0
 // takes a number as input and returns the corresponding color as HEX
 function getColorOfNumber(n) {
-    const colors =["#0000FF","#EED202","#A420FC","#FFA500", "#00C400", "#DC2367"]
+    const colors =["#0000FF","#E6CC00","#A420FC","#CC5500", "#00C400", "#DC2367"]
     counter+=1
     console.log(counter) 
     console.log("called")
