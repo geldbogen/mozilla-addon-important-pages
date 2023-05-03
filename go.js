@@ -1,21 +1,19 @@
 
+var counter =0
 // takes a number as input and returns the corresponding color as HEX
 function getColorOfNumber(n) {
-    const colors =["#0000FF","#F1C40F","#7D3C98",  "#D35400", "#7B241C", "#DC2367"]
-    switch (n) {
-        case n<10:
-            return colors[0];            
-        case n>=10 && n<25:
-            return colors[1];
-        case n>=25 && n<50:
-            return colors[2];
-        case n>=50 && n<100:
-            return colors[3];
-        case n>=100 && n<150:
-            return colors[4];
-        case n>=150:
-            return colors[5];
-    }
+    const colors =["#0000FF","#EED202","#A420FC","#FFA500", "#00C400", "#DC2367"]
+    counter+=1
+    console.log(counter) 
+    console.log("called")
+    n = BigInt(n);
+    console.log(typeof(n));
+    if (n<10) { return colors[0]}
+    if (n<25) { return colors[1]}
+    if (n<50) { return colors[2]}
+    if (n<100) { return colors[3]}
+    if (n<150) { return colors[4]}
+    if (n>=150) { return colors[5]}
 }
 
 // initialize empty dictionary for the famous score of each link 
@@ -57,6 +55,8 @@ async function colorgo(e) {
     arr = arr.filter(link => link.href.includes("wikipedia"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("wikipedia:"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("portal:"));
+    arr = arr.filter(link => !link.href.toLowerCase().includes("category:"));
+    arr = arr.filter(link => !link.href.toLowerCase().includes("help:"));   
     var stringArr = arr.map(link => link.href); 
     stringArr = [...new Set(stringArr)];
 
@@ -69,12 +69,17 @@ async function colorgo(e) {
     }
     console.log("sitelinks dict");
     console.log(sitelinksDict);
+    
+    console.log("dict length " + sitelinksDict.size)
+    console.log("links length " + links.length)
 
     //  color the links according to their sitelinks
     for (let i = 0; i < links.length; i++) {
         if (links[i].href && sitelinksDict.hasOwnProperty(links[i].href)) 
         {
             links[i].style.color=getColorOfNumber(sitelinksDict[links[i].href]);
+            // links[i].style.color="#D35400";
+            
             // console.log(links[i].href)
         }        
     }
