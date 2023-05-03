@@ -56,6 +56,7 @@ async function main() {
 
     // create an array of strings
     var stringArr = arr.map(link => link.href); 
+    var stringArrCopy= stringArr
 
     // remove duplicates
     stringArr = [...new Set(stringArr)];
@@ -77,6 +78,7 @@ async function main() {
                 links[i].style.color=getColorOfNumber(sitelinksDict[links[i].href]);
                 }
             else {
+                if (stringArrCopy.includes(links[i].href))
                 links[i].style.color="#808080"
             }
         }        
