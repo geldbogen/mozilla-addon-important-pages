@@ -16,7 +16,12 @@ var sitelinksDict = new Object();
 
 
 async function feedDict(s) {
-    
+    var check = false
+    if (s.includes("Napoleon_I_of_France")) {
+         check = true;
+         console.log("the String ")
+         console.log(s)
+    }
     // set up the wikidata API and define parameters
     var querystring= `prefix schema: <http://schema.org/>
     SELECT ?url ?sitelinks WHERE {
@@ -32,7 +37,10 @@ async function feedDict(s) {
     const response = await fetch(myUrl + new URLSearchParams({format: 'json', query: querystring}).toString(),{headers: new Headers(myHeaders)});
     console.log(response)
     const data = await response.json();
-
+    if (check) {
+        console.log("agaga")
+        console.log(data);
+    }
     // feed sitelinksDict with information
     for (let i = 0; i < data["results"]["bindings"].length; i++) {
         sitelinksDict[data["results"]["bindings"][i]["url"]["value"]] = Number(data["results"]["bindings"][i]["sitelinks"]["value"]);  
@@ -52,12 +60,17 @@ async function main() {
     arr = arr.filter(link => !link.href.toLowerCase().includes("portal:"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("category:"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("help:"));   
-    // arr = arr.filter(link => !link.href.toLowerCase().includes("#"));   
-
+    arr = arr.filter(link => !link.href.toLowerCase().includes("template:"));   
+    
     // create an array of strings
     var stringArr = arr.map(link => link.href); 
     var stringArrCopy= stringArr
+    console.log("Here is string array:::")
+    console.log(stringArr)
 
+    // filter out # in order to prevent BadRequests (currently under observation)
+    stringArr = stringArr.filter(link => !link.toLowerCase().includes("#"));   
+    
     // remove duplicates
     stringArr = [...new Set(stringArr)];
 
@@ -65,9 +78,13 @@ async function main() {
     // run all items through the API but splitted in bins of 40 items because limitations of request length
     while (stringArr.length != 0) {
         var element = ""
+        var testArray = []
         while (element.length < 4500) {
-            element+="<" + stringArr.shift() + "> "
+            var appendy = stringArr.shift() 
+            element+="<" +appendy + "> "
+            testArray.push(appendy)
         }
+        console.log(testArray)
         await feedDict(element);        
     }
     //  color the links according to their sitelinks
