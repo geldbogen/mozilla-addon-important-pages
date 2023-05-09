@@ -17,7 +17,13 @@ var g_fromWikidataToSitelinks = new Object();
 // intialize
 var g_FromLinknameToWikidata = new Object();
 
-
+// prefix schema: <http://schema.org/>
+//     SELECT ?shorturl ?longurl ?item ?sitelinks WHERE {
+//         VALUES ?shorturl {<Gulf_War>}
+//         BIND(CONCAT(<https://en.wikipedia.org/wiki/>,?shorturl) AS ?longurl)
+//       ?longurl schema:about ?item.
+//       ?item wikibase:sitelinks ?sitelinks.
+//     }
 
 
 async function callSPARQLfromString(s) {
@@ -48,32 +54,44 @@ async function callMediaWiki(s) {
     var redirectDict = new Object();
 
     // run the API and extract result to JSON
+    const endpoint = "https://en.wikipedia.org/w/api.php?";
     const myURLsearch = new URLSearchParams({ action: "query", prop: "pageprops", format: "json", ppprop: "wikibase_item", redirects: true, titles: s });
     var result = await fetch(endpoint + myURLsearch.toString());
     var jsonResult = await result.json();
+    
+    console.log("This is the JSON Result");
+    console.log(jsonResult);
 
-    // take care of the redirects with the help of redirectDictReverse
-    for (let i = 0; i < jsonResult["query"]["redirects"].length; i++) {
-        redirectDict[jsonResult["query"]["redirects"][i]["from"]] = jsonResult["query"]["redirects"][i]["to"];
-
-    }
 
     const pageArray = Object.entries(jsonResult["query"]["pages"])
 
     // feed the global dictionary g_dictFromLinknameToWikidata with the obtained data from the API
     for (let i = 0; i < pageArray.length; i++) {
+        try {
+            var wikidataEntry = pageArray[i][1]["pageprops"]["wikibase_item"];
+            g_FromLinknameToWikidata[pageArray[i][1]["title"]] = "wd:" + wikidataEntry;
+        }
+        catch {
 
-        var wikidataEntry = pageArray[i][1]["pageprops"]["wikibase_item"];
-        g_FromLinknameToWikidata[pageArray[i][1]["title"]] = "wd:" + wikidataEntry;
-
-    }
-
-    // utilize the redirect dict to feed g_dictFromLinknameToWikidata with more data
-    for (const key of Object.keys(redirectDict)) {
-        if (!g_FromLinknameToWikidata.hasOwnProperty(key)) {
-            g_FromLinknameToWikidata[key] = g_FromLinknameToWikidata[redirectDict[key]];
         }
     }
+
+
+    if (jsonResult.hasOwnProperty("query") & jsonResult["query"].hasOwnProperty["redirects"]) {
+        // feed redirectDictReverse with redirects
+        for (let i = 0; i < jsonResult["query"]["redirects"].length; i++) {
+            redirectDict[jsonResult["query"]["redirects"][i]["from"]] = jsonResult["query"]["redirects"][i]["to"];
+
+        }
+        // utilize the redirect dict to feed g_dictFromLinknameToWikidata with more data
+        for (const key of Object.keys(redirectDict)) {
+            if (!g_FromLinknameToWikidata.hasOwnProperty(key)) {
+                g_FromLinknameToWikidata[key] = g_FromLinknameToWikidata[redirectDict[key]];
+            }
+        }
+    }
+    console.log("This is from linkname to wikidata");
+    console.log(g_FromLinknameToWikidata);
 }
 
 
@@ -92,6 +110,7 @@ async function main() {
     arr = arr.filter(link => !link.href.toLowerCase().includes("category:"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("help:"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("template:"));
+    arr = arr.filter(link => !link.href.toLowerCase().includes("special:"));
 
     // create an array of strings
     var stringArr = arr.map(link => link.href);
@@ -106,20 +125,20 @@ async function main() {
     stringArr = [...new Set(stringArr)];
 
     // obtain the title names
-    stringArr.forEach(s => s.replace("https://en.wikipedia.org/wiki/",""))
+    stringArr = stringArr.map(s => s.replace("https://en.wikipedia.org/wiki/", ""))
     console.log("this is the titlename array");
     console.log(stringArr);
 
-    // run all items through the MediaWiki - API, splitted in bins because of request length limitations
+    // run all items through the MediaWiki - API, splitted in bins of 50 because of request length limitations
     while (stringArr.length != 0) {
         var element = ""
         var testArray = []
-        while (element.length < 4500) {
+        while (element.length < 450) {
             var appendy = stringArr.shift()
             element += "|" + appendy
             testArray.push(appendy)
         }
-        console.log(testArray)
+        
         await callMediaWiki(element);
     }
 
@@ -136,15 +155,14 @@ async function main() {
             element += appendy + ""
             testArray.push(appendy)
         }
-        console.log(testArray)
         await callSPARQLfromString(element);
     }
     //  color the links according to their sitelinks
     for (let i = 0; i < links.length; i++) {
         if (links[i].href) {
 
-            var linkTitle = links[i].href.remove("https://en.wikipedia.org/wiki/","")
-            
+            var linkTitle = links[i].href.remove("https://en.wikipedia.org/wiki/", "")
+
             if (g_FromLinknameToWikidata.hasOwnProperty(linkTitle)) {
                 links[i].style.color = getColorOfNumber(g_fromWikidataToSitelinks[g_FromLinknameToWikidata[linkTitle]]);
             }

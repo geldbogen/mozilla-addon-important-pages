@@ -13,7 +13,7 @@
   "content_scripts": [
     {
       "matches": ["*://*.wikipedia.org/*"],
-      "js": ["go2.js"]
+      "js": ["go.js"]
     }
   ],
   "permissions": [
