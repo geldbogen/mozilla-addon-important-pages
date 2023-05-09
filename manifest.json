@@ -13,11 +13,12 @@
   "content_scripts": [
     {
       "matches": ["*://*.wikipedia.org/*"],
-      "js": ["go.js"]
+      "js": ["go2.js"]
     }
   ],
   "permissions": [
     "https://query.wikidata.org/*",
+    "<all_urls>",
     "activeTab"
   ]
 
