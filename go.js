@@ -18,13 +18,12 @@ var g_fromWikidataToSitelinks = new Object();
 var g_FromLinknameToWikidata = new Object();
 
 // prefix schema: <http://schema.org/>
-//     SELECT ?shorturl ?longurl ?item ?sitelinks WHERE {
-//         VALUES ?shorturl {<Gulf_War>}
+//     SELECT ?shorturl ?longurl ?sitelinks WHERE {
+//         VALUES ?shorturl {<Hamburg>}
 //         BIND(CONCAT(<https://en.wikipedia.org/wiki/>,?shorturl) AS ?longurl)
 //       ?longurl schema:about ?item.
-//       ?item wikibase:sitelinks ?sitelinks.
-//     }
-
+//         ?item wikibase:sitelinks ?sitelinks
+//               }
 
 async function callSPARQLfromString(s) {
 
@@ -35,11 +34,12 @@ async function callSPARQLfromString(s) {
         ?item wikibase:sitelinks ?sitelinks
     } `
 
-    const myHeaders = { "User-Agent": "coloring wikipedialinks firefox addon /1.0 (juliusniemeyer1995@gmail.com) javascript", "mode": "no-cors" }
+    const myHeaders = { }
     const myUrl = "https://query.wikidata.org/sparql?"
 
     // wait for response
     const response = await fetch(myUrl + new URLSearchParams({ format: 'json', query: querystring }).toString(), { headers: new Headers(myHeaders) });
+    console.log(response);
     const data = await response.json();
 
     // feed sitelinksDict with information
