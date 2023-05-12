@@ -13,9 +13,14 @@ function getColorOfNumber(n) {
 // initialize empty dictionary for the famous score/number of languagelinks of each link 
 var g_fromWikidataToSitelinks = new Object();
 
-
 // intialize
 var g_FromLinknameToWikidata = new Object();
+
+// initialize
+var g_FromLinknametoSitelinks = new Object();
+
+// get current wikipedia language
+var g_wikiLang="en"
 
 // prefix schema: <http://schema.org/>
 //     SELECT ?shorturl ?longurl ?sitelinks WHERE {
@@ -25,14 +30,17 @@ var g_FromLinknameToWikidata = new Object();
 //         ?item wikibase:sitelinks ?sitelinks
 //               }
 
-async function callSPARQLfromString(s) {
+async function callSPARQLfromString(s,lang="en") {
 
     // set up the wikidata API and define parameters
     var querystring = `prefix schema: <http://schema.org/>
-    SELECT ?item ?sitelinks WHERE {
-        VALUES ?url {`+ s + `}
-        ?item wikibase:sitelinks ?sitelinks
-    } `
+    SELECT ?shorturl ?longurl ?sitelinks WHERE {
+        VALUES ?shorturl {`+s+`}
+      BIND(IRI(CONCAT("https://`+lang+ `.wikipedia.org/wiki/",?shorturl)) AS ?longurl)
+      ?longurl schema:about ?item.
+      ?item wikibase:sitelinks ?sitelinks
+              }
+ `
 
     const myHeaders = { }
     const myUrl = "https://query.wikidata.org/sparql?"
@@ -48,13 +56,13 @@ async function callSPARQLfromString(s) {
     }
 
 }
-async function callMediaWiki(s) {
+async function callMediaWiki(s,lang="en") {
 
     // initialize a ditionary which translates from the linkname to the official wikipedia page 
     var redirectDict = new Object();
 
     // run the API and extract result to JSON
-    const endpoint = "https://en.wikipedia.org/w/api.php?";
+    const endpoint = "https://"+lang+".wikipedia.org/w/api.php?";
     const myURLsearch = new URLSearchParams({ action: "query", prop: "pageprops", format: "json", ppprop: "wikibase_item", redirects: true, titles: s });
     var result = await fetch(endpoint + myURLsearch.toString());
     var jsonResult = await result.json();
@@ -125,9 +133,22 @@ async function main() {
     stringArr = [...new Set(stringArr)];
 
     // obtain the title names
-    stringArr = stringArr.map(s => s.replace("https://en.wikipedia.org/wiki/", ""))
+    stringArr = stringArr.map(s => s.replace("https://"+g_wikiLang+".wikipedia.org/wiki/", ""))
     console.log("this is the titlename array");
     console.log(stringArr);
+
+    // run all items through the SPARQL - API, splitted in bins because of request length limitations
+    while (stringArr.length != 0) {
+        var element = ""
+        var testArray = []
+        while (element.length < 4500) {
+            var appendy = stringArr.shift().
+            element += appendy + " "
+            testArray.push(appendy)
+        }
+        await callSPARQLfromString(element,g_wikiLang);
+    }
+
 
     // run all items through the MediaWiki - API, splitted in bins of 50 because of request length limitations
     while (stringArr.length != 0) {
@@ -139,29 +160,18 @@ async function main() {
             testArray.push(appendy)
         }
         
-        await callMediaWiki(element);
+        await callMediaWiki(element,g_wikiLang);
     }
 
     // initialize the list of wikidataentries we want to run through the SPARQL API
     var wikidataEntryList = Object.values(g_FromLinknameToWikidata);
 
 
-    // run all items through the SPARQL - API, splitted in bins because of request length limitations
-    while (wikidataEntryList.length != 0) {
-        var element = ""
-        var testArray = []
-        while (element.length < 4500) {
-            var appendy = wikidataEntryList.shift()
-            element += appendy + ""
-            testArray.push(appendy)
-        }
-        await callSPARQLfromString(element);
-    }
     //  color the links according to their sitelinks
     for (let i = 0; i < links.length; i++) {
         if (links[i].href) {
 
-            var linkTitle = links[i].href.remove("https://en.wikipedia.org/wiki/", "")
+            var linkTitle = links[i].href.remove("https://"+g_wikiLang+".wikipedia.org/wiki/", "")
 
             if (g_FromLinknameToWikidata.hasOwnProperty(linkTitle)) {
                 links[i].style.color = getColorOfNumber(g_fromWikidataToSitelinks[g_FromLinknameToWikidata[linkTitle]]);
