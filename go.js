@@ -1,12 +1,11 @@
 // global variables declaration
 
 // get current wikipedia language
-let wikiUrl = window.location.href;
-console.log("this is the wiki url");
-console.log(wikiUrl);
-
-var g_wikiLang = "en"
-
+var wikiUrl = window.location.href;
+wikiUrl = wikiUrl.split(".wikipedia")[0];
+wikiUrl = wikiUrl.replace("https://", "");
+var g_wikiLang = wikiUrl
+console.log(g_wikiLang);
 
 // initialize
 var g_FromLinkNametoSitelinks = new Object();
@@ -139,9 +138,12 @@ async function MediaWikiAPI(s, lang = "en") {
     const pageArray = Object.entries(jsonResult["query"]["pages"])
 
     // feed redirectDict with retrieved data
-    for (let i = 0; i < jsonResult["query"]["redirects"].length; i++) {
-        g_redirectDict[jsonResult["query"]["redirects"][i]["from"].replace(/ /g,"_")] = jsonResult["query"]["redirects"][i]["to"].replace(/ /g,"_");
-
+    if (jsonResult.hasOwnProperty("query")) {
+        if (jsonResult["query"].hasOwnProperty("redirects")) {
+            for (let i = 0; i < jsonResult["query"]["redirects"].length; i++) {
+                g_redirectDict[jsonResult["query"]["redirects"][i]["from"].replace(/ /g, "_")] = jsonResult["query"]["redirects"][i]["to"].replace(/ /g, "_");
+            }
+        }
     }
 }
 
