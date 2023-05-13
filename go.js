@@ -1,6 +1,10 @@
 // global variables declaration
 
 // get current wikipedia language
+let wikiUrl = window.location.href;
+console.log("this is the wiki url");
+console.log(wikiUrl);
+
 var g_wikiLang = "en"
 
 
