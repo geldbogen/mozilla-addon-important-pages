@@ -1,3 +1,21 @@
+// global variables declaration
+
+// get current wikipedia language
+var g_wikiLang = "en"
+
+
+// initialize
+var g_FromLinkNametoSitelinks = new Object();
+
+// initialize
+var g_missingDataLinksArr = [];
+
+// initialize
+var g_redirectDict = new Object();
+
+
+
+
 
 // takes a number as input and returns the corresponding color as HEX
 function getColorOfNumber(n) {
@@ -10,39 +28,43 @@ function getColorOfNumber(n) {
     if (n >= 150) { return colors[5] }
 }
 
-// initialize empty dictionary for the famous score/number of languagelinks of each link 
-var g_fromWikidataToSitelinks = new Object();
+// transforms URL to Linktitle
+function transformURL(url) {
+    var intermediateURL = url.replace("https://" + g_wikiLang + ".wikipedia.org/wiki/", "");
+    return intermediateURL.split("#")[0];
 
-// intialize
-var g_FromLinknameToWikidata = new Object();
+}
+function checkIfLinkIsWorth(url) {
+    if (!url.split("wikipedia")[0].includes(g_wikiLang)) {
+        return false
+    }
+    if (url.toLowerCase().includes("wikipedia:")) {
+        return false
+    }
+    if (url.toLowerCase().includes("special:")) {
+        return false
+    }
 
-// initialize
-var g_FromLinknametoSitelinks = new Object();
+    return true
+}
 
-// get current wikipedia language
-var g_wikiLang="en"
 
-// prefix schema: <http://schema.org/>
-//     SELECT ?shorturl ?longurl ?sitelinks WHERE {
-//         VALUES ?shorturl {<Hamburg>}
-//         BIND(CONCAT(<https://en.wikipedia.org/wiki/>,?shorturl) AS ?longurl)
-//       ?longurl schema:about ?item.
-//         ?item wikibase:sitelinks ?sitelinks
-//               }
 
-async function callSPARQLfromString(s,lang="en") {
+async function SPARQLAPI(s, lang = "en") {
+    console.log("SPARQL API called with the following:");
+    console.log(s);
 
     // set up the wikidata API and define parameters
     var querystring = `prefix schema: <http://schema.org/>
     SELECT ?shorturl ?longurl ?sitelinks WHERE {
-        VALUES ?shorturl {`+s+`}
-      BIND(IRI(CONCAT("https://`+lang+ `.wikipedia.org/wiki/",?shorturl)) AS ?longurl)
+        VALUES ?shorturl {`+ s + `}
+      BIND(IRI(CONCAT("https://` + lang + `.wikipedia.org/wiki/",?shorturl)) AS ?longurl)
       ?longurl schema:about ?item.
       ?item wikibase:sitelinks ?sitelinks
               }
  `
 
-    const myHeaders = { }
+    const myHeaders = {}
     const myUrl = "https://query.wikidata.org/sparql?"
 
     // wait for response
@@ -52,56 +74,72 @@ async function callSPARQLfromString(s,lang="en") {
 
     // feed sitelinksDict with information
     for (let i = 0; i < data["results"]["bindings"].length; i++) {
-        g_fromWikidataToSitelinks[data["results"]["bindings"][i]["item"]["value"]] = Number(data["results"]["bindings"][i]["sitelinks"]["value"]);
+        g_FromLinkNametoSitelinks[data["results"]["bindings"][i]["shorturl"]["value"]] = Number(data["results"]["bindings"][i]["sitelinks"]["value"]);
+    }
+}
+
+async function runAPIinBins(APIFunction, stringArr, separatorLeft, separatorRight, numberOfItemsOrStringSize, binSize) {
+
+    stringArr = [...stringArr];
+
+    if (numberOfItemsOrStringSize == "numberOfItems") {
+        for (let i = 0; i < (stringArr.length / binSize) + 1; i++) {
+            var tempArr = stringArr.slice(i * binSize, (i + 1) * binSize);
+            console.log("This is tempArr");
+            console.log(tempArr);
+
+            var s = tempArr.reduce((current, next) => current + separatorLeft + next + separatorRight, "");
+            console.log("This is s");
+            console.log(s);
+            await APIFunction(s, g_wikiLang)
+
+        }
+    }
+    if (numberOfItemsOrStringSize == "stringSize") {
+        while (stringArr.length != 0) {
+            var element = ""
+            while (element.length < binSize) {
+                var appendy = stringArr.shift();
+                element += separatorLeft + appendy + separatorRight;
+            }
+            await APIFunction(element, g_wikiLang);
+        }
     }
 
 }
-async function callMediaWiki(s,lang="en") {
 
-    // initialize a ditionary which translates from the linkname to the official wikipedia page 
-    var redirectDict = new Object();
+
+async function MediaWikiAPI(s, lang = "en") {
+
+    console.log("MediaWikiAPI is called with the following string");
+    console.log(s);
+
+    if (s.length == 0) {
+        return
+    }
+
+    // remove first "|"
+    s = s.substring(1);
+
 
     // run the API and extract result to JSON
-    const endpoint = "https://"+lang+".wikipedia.org/w/api.php?";
-    const myURLsearch = new URLSearchParams({ action: "query", prop: "pageprops", format: "json", ppprop: "wikibase_item", redirects: true, titles: s });
+    const endpoint = "https://" + lang + ".wikipedia.org/w/api.php?";
+    const myURLsearch = new URLSearchParams({ action: "query", prop: "pageprops", format: "json", redirects: true, titles: s });
     var result = await fetch(endpoint + myURLsearch.toString());
     var jsonResult = await result.json();
-    
+
     console.log("This is the JSON Result");
     console.log(jsonResult);
 
 
     const pageArray = Object.entries(jsonResult["query"]["pages"])
 
-    // feed the global dictionary g_dictFromLinknameToWikidata with the obtained data from the API
-    for (let i = 0; i < pageArray.length; i++) {
-        try {
-            var wikidataEntry = pageArray[i][1]["pageprops"]["wikibase_item"];
-            g_FromLinknameToWikidata[pageArray[i][1]["title"]] = "wd:" + wikidataEntry;
-        }
-        catch {
+    // feed redirectDict with retrieved data
+    for (let i = 0; i < jsonResult["query"]["redirects"].length; i++) {
+        g_redirectDict[jsonResult["query"]["redirects"][i]["from"].replace(/ /g,"_")] = jsonResult["query"]["redirects"][i]["to"].replace(/ /g,"_");
 
-        }
     }
-
-
-    if (jsonResult.hasOwnProperty("query") & jsonResult["query"].hasOwnProperty["redirects"]) {
-        // feed redirectDictReverse with redirects
-        for (let i = 0; i < jsonResult["query"]["redirects"].length; i++) {
-            redirectDict[jsonResult["query"]["redirects"][i]["from"]] = jsonResult["query"]["redirects"][i]["to"];
-
-        }
-        // utilize the redirect dict to feed g_dictFromLinknameToWikidata with more data
-        for (const key of Object.keys(redirectDict)) {
-            if (!g_FromLinknameToWikidata.hasOwnProperty(key)) {
-                g_FromLinknameToWikidata[key] = g_FromLinknameToWikidata[redirectDict[key]];
-            }
-        }
-    }
-    console.log("This is from linkname to wikidata");
-    console.log(g_FromLinknameToWikidata);
 }
-
 
 
 
@@ -112,73 +150,108 @@ async function main() {
     var arr = Array.from(links);
 
     // filter the array
+    arr = arr.filter(link => checkIfLinkIsWorth(link.href))
     arr = arr.filter(link => link.href.includes("wikipedia"));
-    arr = arr.filter(link => !link.href.toLowerCase().includes("wikipedia:"));
+    // arr = arr.filter(link => !link.href.toLowerCase().includes("wikipedia:"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("portal:"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("category:"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("help:"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("template:"));
-    arr = arr.filter(link => !link.href.toLowerCase().includes("special:"));
+    // arr = arr.filter(link => !link.href.toLowerCase().includes("special:"));
 
     // create an array of strings
     var stringArr = arr.map(link => link.href);
-    var stringArrCopy = stringArr
     console.log("Here is string array:::")
     console.log(stringArr)
 
     // filter out # in order to prevent BadRequests (currently under observation)
-    stringArr = stringArr.filter(link => !link.toLowerCase().includes("#"));
+    // stringArr = stringArr.filter(link => !link.toLowerCase().includes("#"));
 
     // remove duplicates
     stringArr = [...new Set(stringArr)];
 
     // obtain the title names
-    stringArr = stringArr.map(s => s.replace("https://"+g_wikiLang+".wikipedia.org/wiki/", ""))
+    stringArr = stringArr.map(s => transformURL(s))
+
+
+
+
     console.log("this is the titlename array");
     console.log(stringArr);
 
     // run all items through the SPARQL - API, splitted in bins because of request length limitations
-    while (stringArr.length != 0) {
-        var element = ""
-        var testArray = []
-        while (element.length < 4500) {
-            var appendy = stringArr.shift().
-            element += appendy + " "
-            testArray.push(appendy)
-        }
-        await callSPARQLfromString(element,g_wikiLang);
-    }
+
+    await runAPIinBins(SPARQLAPI, stringArr, '"', '" ', "stringSize", 4500);
 
 
     // run all items through the MediaWiki - API, splitted in bins of 50 because of request length limitations
-    while (stringArr.length != 0) {
-        var element = ""
-        var testArray = []
-        while (element.length < 450) {
-            var appendy = stringArr.shift()
-            element += "|" + appendy
-            testArray.push(appendy)
-        }
-        
-        await callMediaWiki(element,g_wikiLang);
-    }
+    // while (stringArr.length != 0) {
+    //     var element = ""
+    //     var testArray = []
+    //     while (element.length < 450) {
+    //         var appendy = stringArr.shift()
+    //         element += "|" + appendy
+    //         testArray.push(appendy)
+    //     }
+
+    //     await callMediaWiki(element,g_wikiLang);
+    // }
 
     // initialize the list of wikidataentries we want to run through the SPARQL API
-    var wikidataEntryList = Object.values(g_FromLinknameToWikidata);
+    // var wikidataEntryList = Object.values(g_FromLinknameToWikidata);
 
 
-    //  color the links according to their sitelinks
+
+    console.log("this is stringArr");
+    console.log(stringArr);
+
+    console.log("this is FromLinkNameToSitelinks");
+    console.log(g_FromLinkNametoSitelinks);
+    // check which links needed to get checked again because of redirects
+    for (let i = 0; i < links.length; i++) {
+
+        // get link title
+        var linkTitle = transformURL(links[i].href);
+
+        if (!(g_FromLinkNametoSitelinks.hasOwnProperty(linkTitle)) & stringArr.includes(linkTitle)) {
+            g_missingDataLinksArr.push(linkTitle);
+        }
+
+    }
+
+    console.log("These are the missing links");
+    console.log(g_missingDataLinksArr);
+
+    // run MediaWikiAPI to get redirections
+    await runAPIinBins(MediaWikiAPI, g_missingDataLinksArr, "|", "", "numberOfItems", 45);
+
+    console.log("This is redirectDict");
+    console.log(g_redirectDict);
+
+    // run SPARQL API again on redirected
+    var newSPARQLList = Object.values(g_redirectDict);
+    await runAPIinBins(SPARQLAPI, newSPARQLList, '"', '" ', "stringSize", 4500);
+
+    // merge new results with SPARQL API result
+
+
+
+    //  finally, color the links according to their sitelinks
     for (let i = 0; i < links.length; i++) {
         if (links[i].href) {
 
-            var linkTitle = links[i].href.remove("https://"+g_wikiLang+".wikipedia.org/wiki/", "")
 
-            if (g_FromLinknameToWikidata.hasOwnProperty(linkTitle)) {
-                links[i].style.color = getColorOfNumber(g_fromWikidataToSitelinks[g_FromLinknameToWikidata[linkTitle]]);
+            // get link title
+            var linkTitle = transformURL(links[i].href);
+
+            if (g_FromLinkNametoSitelinks.hasOwnProperty(linkTitle)) {
+                links[i].style.color = getColorOfNumber(g_FromLinkNametoSitelinks[linkTitle]);
+            }
+            else if (g_redirectDict.hasOwnProperty(linkTitle)) {
+                links[i].style.color = getColorOfNumber(g_FromLinkNametoSitelinks[g_redirectDict[linkTitle]]);
             }
             else {
-                if (stringArrCopy.includes(links[i].href))
-                    links[i].style.color = "#808080"
+                links[i].style.color = "#808080";
             }
         }
     }
