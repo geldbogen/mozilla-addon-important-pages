@@ -8,6 +8,9 @@ var g_wikiLang = wikiUrl
 console.log(g_wikiLang);
 
 // initialize
+var g_onlyUnderline = true
+
+// initialize
 var g_FromLinkNametoSitelinks = new Object();
 
 // initialize
@@ -15,6 +18,7 @@ var g_missingDataLinksArr = [];
 
 // initialize
 var g_redirectDict = new Object();
+
 
 
 
@@ -51,7 +55,16 @@ function checkIfLinkIsWorth(url) {
     return true
 }
 
-
+function applyColorToLink(link,color) {
+    if (g_onlyUnderline) {
+        link.style.textDecoration = "underline";
+        link.style.textDecorationColor = color;
+        link.style.textDecorationThickness = "2px";
+    }
+    else {
+        link.style.color = color;
+    }
+}
 
 async function SPARQLAPI(s, lang = "en") {
     console.log("SPARQL API called with the following:");
@@ -112,6 +125,7 @@ async function runAPIinBins(APIFunction, stringArr, separatorLeft, separatorRigh
 }
 
 
+
 async function MediaWikiAPI(s, lang = "en") {
 
     console.log("MediaWikiAPI is called with the following string");
@@ -134,7 +148,7 @@ async function MediaWikiAPI(s, lang = "en") {
     console.log("This is the JSON Result");
     console.log(jsonResult);
 
-
+ 
     const pageArray = Object.entries(jsonResult["query"]["pages"])
 
     // feed redirectDict with retrieved data
@@ -240,24 +254,21 @@ async function main() {
 
     // merge new results with SPARQL API result
 
-
-
     //  finally, color the links according to their sitelinks
     for (let i = 0; i < links.length; i++) {
         if (links[i].href) {
-
 
             // get link title
             var linkTitle = transformURL(links[i].href);
 
             if (g_FromLinkNametoSitelinks.hasOwnProperty(linkTitle)) {
-                links[i].style.color = getColorOfNumber(g_FromLinkNametoSitelinks[linkTitle]);
+                applyColorToLink(links[i],getColorOfNumber(g_FromLinkNametoSitelinks[linkTitle]));
             }
             else if (g_redirectDict.hasOwnProperty(linkTitle)) {
-                links[i].style.color = getColorOfNumber(g_FromLinkNametoSitelinks[g_redirectDict[linkTitle]]);
+                applyColorToLink(links[i],getColorOfNumber(g_FromLinkNametoSitelinks[g_redirectDict[linkTitle]]));
             }
             else {
-                links[i].style.color = "#808080";
+                applyColorToLink(links[i],"#808080");
             }
         }
     }
