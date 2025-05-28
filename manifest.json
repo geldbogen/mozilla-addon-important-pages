@@ -1,0 +1,25 @@
+{
+
+  "manifest_version": 2,
+  "name": "wikipdedia hyperlink colorchanger",
+  "version": "1.0",
+
+  "description": "Change colors of wikipedia hyperlinks according to how important they are",
+
+  "icons": {
+
+    },
+
+  "content_scripts": [
+    {
+      "matches": ["*://*.wikipedia.org/*"],
+      "js": ["go.js"]
+    }
+  ],
+  "permissions": [
+    "https://query.wikidata.org/*",
+    "<all_urls>",
+    "activeTab"
+  ]
+
+}
