@@ -81,7 +81,7 @@ async function SPARQLAPI(s, lang = "en") {
  `
 
     const myHeaders = {}
-    const myUrl = "https://query.wikidata.org/sparql?"
+    const myUrl = "https://query-legacy-full.wikidata.org/sparql?"
 
     // wait for response
     const response = await fetch(myUrl + new URLSearchParams({ format: 'json', query: querystring }).toString(), { headers: new Headers(myHeaders) });

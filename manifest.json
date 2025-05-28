@@ -17,7 +17,7 @@
     }
   ],
   "permissions": [
-    "https://query.wikidata.org/*",
+    "https://query-legacy-full.wikidata.org/",
     "<all_urls>",
     "activeTab"
   ]
