@@ -1,10 +1,10 @@
 {
 
-  "manifest_version": 2,
-  "name": "wikipdedia hyperlink colorchanger",
+  "manifest_version": 3,
+  "name": "Wikipedia hyperlink colorchanger",
   "version": "1.0",
 
-  "description": "Change colors of wikipedia hyperlinks according to how important they are",
+  "description": "Underline Wikipedia hyperlinks in different colors, according to their global relevance",
 
   "icons": {
 
