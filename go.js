@@ -76,12 +76,13 @@ async function SPARQLAPI(s, lang = "en") {
         VALUES ?shorturl {`+ s + `}
       BIND(IRI(CONCAT("https://` + lang + `.wikipedia.org/wiki/",?shorturl)) AS ?longurl)
       ?longurl schema:about ?item.
+      MINUS {?item wdt:P31 wd:Q13442814}
       ?item wikibase:sitelinks ?sitelinks
               }
  `
 
     const myHeaders = {}
-    const myUrl = "https://query-legacy-full.wikidata.org/sparql?"
+    const myUrl = "https://query.wikidata.org/sparql?"
 
     // wait for response
     const response = await fetch(myUrl + new URLSearchParams({ format: 'json', query: querystring }).toString(), { headers: new Headers(myHeaders) });
