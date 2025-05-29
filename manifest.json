@@ -2,7 +2,7 @@
 
   "manifest_version": 3,
   "name": "Wikipedia hyperlink colorchanger",
-  "version": "1.0",
+  "version": "1.1",
 
   "description": "Underline Wikipedia hyperlinks in different colors, according to their global relevance",
 
