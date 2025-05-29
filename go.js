@@ -74,10 +74,11 @@ async function SPARQLAPI(s, lang = "en") {
     var querystring = `prefix schema: <http://schema.org/>
     SELECT ?shorturl ?longurl ?sitelinks WHERE {
         VALUES ?shorturl {`+ s + `}
-      BIND(IRI(CONCAT("https://` + lang + `.wikipedia.org/wiki/",?shorturl)) AS ?longurl)
-      ?longurl schema:about ?item.
-      MINUS {?item wdt:P31 wd:Q13442814}
-      ?item wikibase:sitelinks ?sitelinks
+        BIND(IRI(CONCAT("https://` + lang + `.wikipedia.org/wiki/",?shorturl)) AS ?longurl)
+        ?longurl schema:about ?item.
+        ?longurl schema:inLanguage "` + lang + `" .
+        ?longurl schema:isPartOf <https://` + lang + `.wikipedia.org/>.
+        ?item wikibase:sitelinks ?sitelinks
               }
  `
 
