@@ -51,6 +51,9 @@ function checkIfLinkIsWorth(url) {
     if (url.toLowerCase().includes("special:")) {
         return false
     }
+    if (url.toLowerCase().includes("help:")) {
+        return false
+    }
 
     return true
 }
@@ -175,12 +178,22 @@ async function main() {
     // filter the array
     arr = arr.filter(link => checkIfLinkIsWorth(link.href))
     arr = arr.filter(link => link.href.includes("wikipedia"));
-    // arr = arr.filter(link => !link.href.toLowerCase().includes("wikipedia:"));
+    arr = arr.filter(link => !link.href.toLowerCase().includes("wikipedia:"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("portal:"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("category:"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("help:"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("template:"));
-    // arr = arr.filter(link => !link.href.toLowerCase().includes("special:"));
+    arr = arr.filter(link => !link.href.toLowerCase().includes("special:"));
+
+    // filter out main page and other navigation pages
+    arr = arr.filter(link => !link.href.toLowerCase().includes("/wiki/main_page"));
+    arr = arr.filter(link => !link.href.toLowerCase().includes("/wiki/contents"));
+
+    // filter out navigation links based on parent element classes
+    arr = arr.filter(link => {
+        const parent = link.closest('.mw-sidebar, .vector-menu-portal, .vector-pinnable-container, .mw-portlet');
+        return !parent;
+    });
 
     // create an array of strings
     var stringArr = arr.map(link => link.href);
@@ -276,6 +289,24 @@ async function main() {
             else {
                 applyColorToLink(links[i],"#808080");
             }
+        }
+    }
+
+    // underline the article headline in the corresponding color
+    var currentPageTitle = transformURL(window.location.href);
+    var headlineElement = document.getElementById("firstHeading");
+    if (headlineElement) {
+        if (g_FromLinkNametoSitelinks.hasOwnProperty(currentPageTitle)) {
+            var headlineColor = getColorOfNumber(g_FromLinkNametoSitelinks[currentPageTitle]);
+            headlineElement.style.textDecoration = "underline";
+            headlineElement.style.textDecorationColor = headlineColor;
+            headlineElement.style.textDecorationThickness = "3px";
+        }
+        else if (g_redirectDict.hasOwnProperty(currentPageTitle)) {
+            var headlineColor = getColorOfNumber(g_FromLinkNametoSitelinks[g_redirectDict[currentPageTitle]]);
+            headlineElement.style.textDecoration = "underline";
+            headlineElement.style.textDecorationColor = headlineColor;
+            headlineElement.style.textDecorationThickness = "3px";
         }
     }
 
