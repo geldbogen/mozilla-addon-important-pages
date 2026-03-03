@@ -99,6 +99,7 @@ async function SPARQLAPI(s, lang = "en") {
 async function runAPIinBins(APIFunction, stringArr, separatorLeft, separatorRight, numberOfItemsOrStringSize, binSize) {
 
     stringArr = [...stringArr];
+    var promises = [];
 
     if (numberOfItemsOrStringSize == "numberOfItems") {
         for (let i = 0; i < (stringArr.length / binSize) + 1; i++) {
@@ -109,8 +110,7 @@ async function runAPIinBins(APIFunction, stringArr, separatorLeft, separatorRigh
             var s = tempArr.reduce((current, next) => current + separatorLeft + next + separatorRight, "");
             console.log("This is s");
             console.log(s);
-            await APIFunction(s, g_wikiLang)
-
+            promises.push(APIFunction(s, g_wikiLang));
         }
     }
     if (numberOfItemsOrStringSize == "stringSize") {
@@ -120,10 +120,11 @@ async function runAPIinBins(APIFunction, stringArr, separatorLeft, separatorRigh
                 var appendy = stringArr.shift();
                 element += separatorLeft + appendy + separatorRight;
             }
-            await APIFunction(element, g_wikiLang);
+            promises.push(APIFunction(element, g_wikiLang));
         }
     }
 
+    await Promise.all(promises);
 }
 
 
@@ -230,16 +231,19 @@ async function main() {
     console.log("this is FromLinkNameToSitelinks");
     console.log(g_FromLinkNametoSitelinks);
     // check which links needed to get checked again because of redirects
+    var uniqueTitles = new Set();
     for (let i = 0; i < links.length; i++) {
 
         // get link title
         var linkTitle = transformURL(links[i].href);
 
         if (!(g_FromLinkNametoSitelinks.hasOwnProperty(linkTitle)) & stringArr.includes(linkTitle)) {
-            g_missingDataLinksArr.push(linkTitle);
+            uniqueTitles.add(linkTitle);
         }
 
     }
+
+    g_missingDataLinksArr = Array.from(uniqueTitles);
 
     console.log("These are the missing links");
     console.log(g_missingDataLinksArr);
