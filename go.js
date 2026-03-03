@@ -292,6 +292,24 @@ async function main() {
         }
     }
 
+    // underline the article headline in the corresponding color
+    var currentPageTitle = transformURL(window.location.href);
+    var headlineElement = document.getElementById("firstHeading");
+    if (headlineElement) {
+        if (g_FromLinkNametoSitelinks.hasOwnProperty(currentPageTitle)) {
+            var headlineColor = getColorOfNumber(g_FromLinkNametoSitelinks[currentPageTitle]);
+            headlineElement.style.textDecoration = "underline";
+            headlineElement.style.textDecorationColor = headlineColor;
+            headlineElement.style.textDecorationThickness = "3px";
+        }
+        else if (g_redirectDict.hasOwnProperty(currentPageTitle)) {
+            var headlineColor = getColorOfNumber(g_FromLinkNametoSitelinks[g_redirectDict[currentPageTitle]]);
+            headlineElement.style.textDecoration = "underline";
+            headlineElement.style.textDecorationColor = headlineColor;
+            headlineElement.style.textDecorationThickness = "3px";
+        }
+    }
+
 }
 
 
