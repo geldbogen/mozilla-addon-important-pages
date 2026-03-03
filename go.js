@@ -59,7 +59,9 @@ function applyColorToLink(link,color) {
     if (g_onlyUnderline) {
         link.style.textDecoration = "underline";
         link.style.textDecorationColor = color;
-        link.style.textDecorationThickness = "2px";
+        link.style.textDecorationThickness = window.innerWidth < 768 ? "3px" : "2px";
+        link.style.textDecorationUnderlinePosition = "under";
+        link.style.textUnderlineOffset = window.innerWidth < 768 ? "2px" : "1px";
     }
     else {
         link.style.color = color;

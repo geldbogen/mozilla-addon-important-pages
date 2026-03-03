@@ -1,0 +1,15 @@
+@media (max-width: 768px) {
+    a {
+        text-decoration-underline-position: under !important;
+        text-decoration-thickness: 3px !important;
+        text-underline-offset: 2px !important;
+    }
+
+    a:visited {
+        text-decoration-underline-position: under !important;
+    }
+
+    a:hover {
+        text-decoration-thickness: 4px !important;
+    }
+}
