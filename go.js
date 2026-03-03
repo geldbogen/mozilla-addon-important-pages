@@ -38,7 +38,7 @@ function getColorOfNumber(n) {
 // transforms URL to Linktitle
 function transformURL(url) {
     var intermediateURL = url.replace("https://" + g_wikiLang + ".wikipedia.org/wiki/", "");
-    return intermediateURL.split("#")[0];
+    return decodeURIComponent(intermediateURL.split("#")[0]);
 
 }
 function checkIfLinkIsWorth(url) {
