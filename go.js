@@ -10,6 +10,9 @@ console.log(g_wikiLang);
 // initialize
 var g_onlyUnderline = true
 
+// set to true to troubleshoot headline key matching on tricky titles.
+var g_debugHeadline = true
+
 // initialize
 var g_FromLinkNametoSitelinks = new Object();
 
@@ -25,6 +28,11 @@ var g_redirectDict = new Object();
 
 
 // takes a number as input and returns the corresponding color as HEX
+/**
+ * Maps a sitelink count to a predefined HEX color bucket.
+ * @param {number} n Sitelink count.
+ * @returns {string|undefined} HEX color string for supported ranges.
+ */
 function getColorOfNumber(n) {
     const colors = ["#0000FF", "#E6CC00", "#A420FC", "#CC5500", "#00C400", "#DC2367"]
     if (n < 10) { return colors[0] }
@@ -36,6 +44,13 @@ function getColorOfNumber(n) {
 }
 
 // transforms URL to Linktitle
+/**
+ * Normalizes a Wikipedia page title string for dictionary lookups.
+ * Decodes percent-encoding (when valid), replaces spaces with underscores,
+ * and normalizes Unicode to NFC form.
+ * @param {string} title Raw title value.
+ * @returns {string} Normalized title, or an empty string for non-string input.
+ */
 function normalizeWikiTitle(title) {
     if (typeof title !== "string") {
         return "";
@@ -51,28 +66,158 @@ function normalizeWikiTitle(title) {
     return normalizedTitle.replace(/ /g, "_").normalize("NFC");
 }
 
+/**
+ * Extracts a normalized Wikipedia title from a URL.
+ * Supports `/wiki/<title>` paths and `?title=<title>` query parameters.
+ * Falls back to string parsing if URL parsing fails.
+ * @param {string} url Link URL (absolute or relative).
+ * @returns {string} Normalized article title.
+ */
 function transformURL(url) {
-    var intermediateURL = url.replace("https://" + g_wikiLang + ".wikipedia.org/wiki/", "");
-    return normalizeWikiTitle(intermediateURL.split("#")[0]);
+    try {
+        var parsedUrl = new URL(url, window.location.origin);
+        var path = parsedUrl.pathname || "";
+
+        if (path.startsWith("/wiki/")) {
+            return normalizeWikiTitle(path.substring("/wiki/".length));
+        }
+
+        var titleParam = parsedUrl.searchParams.get("title");
+        if (titleParam) {
+            return normalizeWikiTitle(titleParam);
+        }
+    } catch (e) {
+        // Fall through to simple parsing.
+    }
+
+    var intermediateURL = url.replace(/^https?:\/\/[^/]+\/wiki\//, "");
+    return normalizeWikiTitle(intermediateURL.split("#")[0].split("?")[0]);
 
 }
+
+/**
+ * Writes headline matching diagnostics when debug mode is enabled.
+ * @param {string} message Log message.
+ * @param {*} [data=null] Optional structured data to log alongside the message.
+ * @returns {void}
+ */
+function debugHeadlineLog(message, data = null) {
+    if (!g_debugHeadline) {
+        return;
+    }
+
+    if (data === null) {
+        console.log("[WikiLinkColor][headline] " + message);
+    } else {
+        console.log("[WikiLinkColor][headline] " + message, data);
+    }
+}
+
+/**
+ * Returns the best available headline element for the current article page.
+ * @returns {HTMLElement|null} Headline element if found, otherwise null.
+ */
+function getHeadlineElement() {
+    return document.getElementById("firstHeading")
+        || document.querySelector("h1.mw-first-heading")
+        || document.querySelector("main h1")
+        || document.querySelector("h1");
+}
+
+/**
+ * Resolves sitelink information for a title using direct and redirect lookups.
+ * @param {string} title Article title to resolve.
+ * @returns {{value:number,source:string,key:string,redirectTarget?:string}|null}
+ * Resolution payload when found, otherwise null.
+ */
+function getSitelinksForTitle(title) {
+    var normalizedTitle = normalizeWikiTitle(title);
+
+    if (g_FromLinkNametoSitelinks.hasOwnProperty(normalizedTitle)) {
+        return {
+            value: g_FromLinkNametoSitelinks[normalizedTitle],
+            source: "direct",
+            key: normalizedTitle
+        };
+    }
+
+    if (g_redirectDict.hasOwnProperty(normalizedTitle)) {
+        var redirectTarget = g_redirectDict[normalizedTitle];
+        if (g_FromLinkNametoSitelinks.hasOwnProperty(redirectTarget)) {
+            return {
+                value: g_FromLinkNametoSitelinks[redirectTarget],
+                source: "redirect",
+                key: normalizedTitle,
+                redirectTarget: redirectTarget
+            };
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Escapes a value for safe inclusion in a SPARQL string literal.
+ * @param {*} value Value to escape.
+ * @returns {string} Escaped string literal content.
+ */
+function escapeSparqlLiteral(value) {
+    return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+/**
+ * Encodes a normalized Wikipedia title for use in SPARQL-generated wiki paths.
+ * @param {string} title Raw title.
+ * @returns {string} URI-encoded title path segment.
+ */
+function encodeWikiTitleForSparqlPath(title) {
+    try {
+        return encodeURI(normalizeWikiTitle(title)).replace(/'/g, "%27");
+    } catch (e) {
+        return normalizeWikiTitle(title);
+    }
+}
+/**
+ * Determines whether a link should be processed for coloring.
+ * Filters out non-Wikipedia, meta/special/help pages, and edit/history actions.
+ * @param {string} url Link URL.
+ * @returns {boolean} True when the link is an eligible article link.
+ */
 function checkIfLinkIsWorth(url) {
-    if (!url.split("wikipedia")[0].includes(g_wikiLang)) {
+    var parsedUrl;
+    try {
+        parsedUrl = new URL(url, window.location.origin);
+    } catch (e) {
+        return false;
+    }
+
+    if (!parsedUrl.href.split("wikipedia")[0].includes(g_wikiLang)) {
         return false
     }
-    if (url.toLowerCase().includes("wikipedia:")) {
+    if (parsedUrl.href.toLowerCase().includes("wikipedia:")) {
         return false
     }
-    if (url.toLowerCase().includes("special:")) {
+    if (parsedUrl.href.toLowerCase().includes("special:")) {
         return false
     }
-    if (url.toLowerCase().includes("help:")) {
+    if (parsedUrl.href.toLowerCase().includes("help:")) {
+        return false
+    }
+
+    var actionParam = (parsedUrl.searchParams.get("action") || "").toLowerCase();
+    if (actionParam === "edit" || actionParam === "history") {
         return false
     }
 
     return true
 }
 
+/**
+ * Applies either underline styling or text color based on configuration.
+ * @param {HTMLAnchorElement} link Link element to style.
+ * @param {string} color HEX color value.
+ * @returns {void}
+ */
 function applyColorToLink(link,color) {
     if (g_onlyUnderline) {
         link.style.textDecoration = "underline";
@@ -84,12 +229,36 @@ function applyColorToLink(link,color) {
     }
 }
 
+/**
+ * Removes custom underline styling from a link.
+ * @param {HTMLAnchorElement} link Link element to reset.
+ * @returns {void}
+ */
 function removeUnderline(link) {
     link.style.textDecoration = "none";
     link.style.textDecorationColor = "";
     link.style.textDecorationThickness = "";
 }
 
+/**
+ * Applies a colored box treatment to the page headline.
+ * @param {HTMLElement} headlineElement Headline element to style.
+ * @param {string} color HEX color value.
+ * @returns {void}
+ */
+function applyColorBoxToHeadline(headlineElement, color) {
+    headlineElement.style.textDecoration = "none";
+    headlineElement.style.border = "3px solid " + color;
+    headlineElement.style.borderRadius = "6px";
+    headlineElement.style.padding = "0.2em 0.4em";
+    headlineElement.style.display = "inline-block";
+}
+
+/**
+ * Checks whether a link points to the current page and should remain unstyled.
+ * @param {HTMLAnchorElement} link Link element to evaluate.
+ * @returns {boolean} True for same-page links (including in-page anchors).
+ */
 function shouldRemoveUnderlineForCurrentPageLink(link) {
     if (!link || !link.href) {
         return false;
@@ -106,6 +275,13 @@ function shouldRemoveUnderlineForCurrentPageLink(link) {
     return false;
 }
 
+/**
+ * Queries Wikidata SPARQL for sitelink counts of provided Wikipedia titles.
+ * Populates `g_FromLinkNametoSitelinks` with normalized title -> sitelink count.
+ * @param {string} s VALUES fragment containing quoted title tokens.
+ * @param {string} [lang="en"] Wikipedia language code.
+ * @returns {Promise<void>}
+ */
 async function SPARQLAPI(s, lang = "en") {
     console.log("SPARQL API called with the following:");
     console.log(s);
@@ -137,6 +313,17 @@ async function SPARQLAPI(s, lang = "en") {
     }
 }
 
+/**
+ * Splits API input into bins and executes the provided async API function in parallel.
+ * Supports chunking by item count or by accumulated string length.
+ * @param {(payload:string, lang:string) => Promise<void>} APIFunction Async API function.
+ * @param {string[]} stringArr Input title/token array.
+ * @param {string} separatorLeft Prefix separator applied per token.
+ * @param {string} separatorRight Suffix separator applied per token.
+ * @param {"numberOfItems"|"stringSize"} numberOfItemsOrStringSize Chunking strategy.
+ * @param {number} binSize Maximum items or approximate max string size per bin.
+ * @returns {Promise<void>}
+ */
 async function runAPIinBins(APIFunction, stringArr, separatorLeft, separatorRight, numberOfItemsOrStringSize, binSize) {
 
     stringArr = [...stringArr];
@@ -170,6 +357,13 @@ async function runAPIinBins(APIFunction, stringArr, separatorLeft, separatorRigh
 
 
 
+/**
+ * Queries the MediaWiki API for redirect resolution of page titles.
+ * Populates `g_redirectDict` with normalized redirect source -> target mappings.
+ * @param {string} s Pipe-delimited title list (leading `|` expected).
+ * @param {string} [lang="en"] Wikipedia language code.
+ * @returns {Promise<void>}
+ */
 async function MediaWikiAPI(s, lang = "en") {
 
     console.log("MediaWikiAPI is called with the following string");
@@ -209,6 +403,12 @@ async function MediaWikiAPI(s, lang = "en") {
 
 
 
+/**
+ * Orchestrates link collection, API enrichment, and link/headline coloring.
+ * Updates link styling in-place across the current document and applies
+ * a color box to the article headline when sitelink data is available.
+ * @returns {Promise<void>}
+ */
 async function main() {
 
     // get all links as HTMLCollection and transform it to an array
@@ -258,7 +458,8 @@ async function main() {
 
     // run all items through the SPARQL - API, splitted in bins because of request length limitations
 
-    await runAPIinBins(SPARQLAPI, stringArr, '"', '" ', "stringSize", 4500);
+    var sparqlArr = stringArr.map(s => encodeWikiTitleForSparqlPath(s));
+    await runAPIinBins(SPARQLAPI, sparqlArr, '"', '" ', "stringSize", 4500);
 
 
     // run all items through the MediaWiki - API, splitted in bins of 50 because of request length limitations
@@ -287,6 +488,9 @@ async function main() {
     // check which links needed to get checked again because of redirects
     var uniqueTitles = new Set();
     for (let i = 0; i < links.length; i++) {
+        if (!checkIfLinkIsWorth(links[i].href)) {
+            continue;
+        }
 
         // get link title
         var linkTitle = transformURL(links[i].href);
@@ -309,7 +513,7 @@ async function main() {
     console.log(g_redirectDict);
 
     // run SPARQL API again on redirected
-    var newSPARQLList = Object.values(g_redirectDict);
+    var newSPARQLList = Object.values(g_redirectDict).map(s => encodeWikiTitleForSparqlPath(s));
     await runAPIinBins(SPARQLAPI, newSPARQLList, '"', '" ', "stringSize", 4500);
 
     // merge new results with SPARQL API result
@@ -317,6 +521,11 @@ async function main() {
     //  finally, color the links according to their sitelinks
     for (let i = 0; i < links.length; i++) {
         if (links[i].href) {
+            if (!checkIfLinkIsWorth(links[i].href)) {
+                removeUnderline(links[i]);
+                continue;
+            }
+
             if (shouldRemoveUnderlineForCurrentPageLink(links[i])) {
                 removeUnderline(links[i]);
                 continue;
@@ -339,19 +548,31 @@ async function main() {
 
     // underline the article headline in the corresponding color
     var currentPageTitle = transformURL(window.location.href);
-    var headlineElement = document.getElementById("firstHeading");
+    var headlineElement = getHeadlineElement();
+
+    debugHeadlineLog("Current title", currentPageTitle);
+    debugHeadlineLog("Headline element found", headlineElement ? (headlineElement.id || headlineElement.className || headlineElement.tagName) : "none");
+
     if (headlineElement) {
-        if (g_FromLinkNametoSitelinks.hasOwnProperty(currentPageTitle)) {
-            var headlineColor = getColorOfNumber(g_FromLinkNametoSitelinks[currentPageTitle]);
-            headlineElement.style.textDecoration = "underline";
-            headlineElement.style.textDecorationColor = headlineColor;
-            headlineElement.style.textDecorationThickness = "3px";
+        var headlineSitelinks = getSitelinksForTitle(currentPageTitle);
+
+        // Fallback: explicitly query current page title if it did not resolve in bulk calls.
+        if (!headlineSitelinks) {
+            debugHeadlineLog("No initial match for headline title; running direct lookup.");
+            await MediaWikiAPI("|" + currentPageTitle, g_wikiLang);
+
+            var redirectTarget = g_redirectDict[currentPageTitle] || currentPageTitle;
+            var encodedRedirectTarget = encodeWikiTitleForSparqlPath(redirectTarget);
+            await SPARQLAPI('"' + escapeSparqlLiteral(encodedRedirectTarget) + '" ', g_wikiLang);
+            headlineSitelinks = getSitelinksForTitle(currentPageTitle);
         }
-        else if (g_redirectDict.hasOwnProperty(currentPageTitle)) {
-            var headlineColor = getColorOfNumber(g_FromLinkNametoSitelinks[g_redirectDict[currentPageTitle]]);
-            headlineElement.style.textDecoration = "underline";
-            headlineElement.style.textDecorationColor = headlineColor;
-            headlineElement.style.textDecorationThickness = "3px";
+
+        if (headlineSitelinks) {
+            debugHeadlineLog("Matched headline title", headlineSitelinks);
+            var headlineColor = getColorOfNumber(headlineSitelinks.value);
+            applyColorBoxToHeadline(headlineElement, headlineColor);
+        } else {
+            debugHeadlineLog("Failed to match headline title after fallback", currentPageTitle);
         }
     }
 
