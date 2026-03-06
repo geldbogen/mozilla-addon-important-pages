@@ -4,8 +4,14 @@
   "version": "1.1",
   "browser_specific_settings": {
     "gecko": {
-      "id": "{74a6d063-cd5c-4ddc-a46e-928704bfa4ac}"
-    }
+      "id": "{74a6d063-cd5c-4ddc-a46e-928704bfa4ac}",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    },
+    "gecko_android": {}
   },
   
   "description": "Underline Wikipedia hyperlinks in different colors, according to their global relevance",
@@ -20,9 +26,8 @@
       "js": ["go.js"]
     }
   ],
-  "permissions": [
-    "https://query.wikidata.org/",
-    "<all_urls>",
-    "activeTab"
+  "host_permissions": [
+    "*://*.wikipedia.org/*",
+    "https://query.wikidata.org/*"
   ]
 }

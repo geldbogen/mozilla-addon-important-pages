@@ -11,7 +11,13 @@ console.log(g_wikiLang);
 var g_onlyUnderline = true
 
 // set to true to troubleshoot headline key matching on tricky titles.
-var g_debugHeadline = true
+var g_debugHeadline = false
+
+// reduce request pressure on mobile browsers to improve reliability.
+var g_isMobileBrowser = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "");
+var g_sparqlBinSize = g_isMobileBrowser ? 2000 : 4500;
+var g_mediaWikiBinSize = g_isMobileBrowser ? 25 : 45;
+var g_apiConcurrency = g_isMobileBrowser ? 2 : 8;
 
 // initialize
 var g_FromLinkNametoSitelinks = new Object();
@@ -322,12 +328,13 @@ async function SPARQLAPI(s, lang = "en") {
  * @param {string} separatorRight Suffix separator applied per token.
  * @param {"numberOfItems"|"stringSize"} numberOfItemsOrStringSize Chunking strategy.
  * @param {number} binSize Maximum items or approximate max string size per bin.
+ * @param {number} [maxConcurrency=Infinity] Maximum number of concurrent requests.
  * @returns {Promise<void>}
  */
-async function runAPIinBins(APIFunction, stringArr, separatorLeft, separatorRight, numberOfItemsOrStringSize, binSize) {
+async function runAPIinBins(APIFunction, stringArr, separatorLeft, separatorRight, numberOfItemsOrStringSize, binSize, maxConcurrency = Infinity) {
 
     stringArr = [...stringArr];
-    var promises = [];
+    var tasks = [];
 
     if (numberOfItemsOrStringSize == "numberOfItems") {
         for (let i = 0; i < (stringArr.length / binSize) + 1; i++) {
@@ -338,7 +345,7 @@ async function runAPIinBins(APIFunction, stringArr, separatorLeft, separatorRigh
             var s = tempArr.reduce((current, next) => current + separatorLeft + next + separatorRight, "");
             console.log("This is s");
             console.log(s);
-            promises.push(APIFunction(s, g_wikiLang));
+            tasks.push(() => APIFunction(s, g_wikiLang));
         }
     }
     if (numberOfItemsOrStringSize == "stringSize") {
@@ -348,11 +355,27 @@ async function runAPIinBins(APIFunction, stringArr, separatorLeft, separatorRigh
                 var appendy = stringArr.shift();
                 element += separatorLeft + appendy + separatorRight;
             }
-            promises.push(APIFunction(element, g_wikiLang));
+            tasks.push(() => APIFunction(element, g_wikiLang));
         }
     }
 
-    await Promise.all(promises);
+    var concurrency = Math.max(1, Number(maxConcurrency) || 1);
+    var nextTaskIndex = 0;
+
+    async function worker() {
+        while (nextTaskIndex < tasks.length) {
+            var currentIndex = nextTaskIndex;
+            nextTaskIndex += 1;
+            await tasks[currentIndex]();
+        }
+    }
+
+    var workers = [];
+    for (let i = 0; i < Math.min(concurrency, tasks.length); i++) {
+        workers.push(worker());
+    }
+
+    await Promise.all(workers);
 }
 
 
@@ -459,7 +482,7 @@ async function main() {
     // run all items through the SPARQL - API, splitted in bins because of request length limitations
 
     var sparqlArr = stringArr.map(s => encodeWikiTitleForSparqlPath(s));
-    await runAPIinBins(SPARQLAPI, sparqlArr, '"', '" ', "stringSize", 4500);
+    await runAPIinBins(SPARQLAPI, sparqlArr, '"', '" ', "stringSize", g_sparqlBinSize, g_apiConcurrency);
 
 
     // run all items through the MediaWiki - API, splitted in bins of 50 because of request length limitations
@@ -507,14 +530,14 @@ async function main() {
     console.log(g_missingDataLinksArr);
 
     // run MediaWikiAPI to get redirections
-    await runAPIinBins(MediaWikiAPI, g_missingDataLinksArr, "|", "", "numberOfItems", 45);
+    await runAPIinBins(MediaWikiAPI, g_missingDataLinksArr, "|", "", "numberOfItems", g_mediaWikiBinSize, g_apiConcurrency);
 
     console.log("This is redirectDict");
     console.log(g_redirectDict);
 
     // run SPARQL API again on redirected
     var newSPARQLList = Object.values(g_redirectDict).map(s => encodeWikiTitleForSparqlPath(s));
-    await runAPIinBins(SPARQLAPI, newSPARQLList, '"', '" ', "stringSize", 4500);
+    await runAPIinBins(SPARQLAPI, newSPARQLList, '"', '" ', "stringSize", g_sparqlBinSize, g_apiConcurrency);
 
     // merge new results with SPARQL API result
 
