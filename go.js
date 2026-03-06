@@ -36,9 +36,24 @@ function getColorOfNumber(n) {
 }
 
 // transforms URL to Linktitle
+function normalizeWikiTitle(title) {
+    if (typeof title !== "string") {
+        return "";
+    }
+
+    var normalizedTitle = title;
+    try {
+        normalizedTitle = decodeURIComponent(normalizedTitle);
+    } catch (e) {
+        // Keep the original title if decoding fails for malformed input.
+    }
+
+    return normalizedTitle.replace(/ /g, "_").normalize("NFC");
+}
+
 function transformURL(url) {
     var intermediateURL = url.replace("https://" + g_wikiLang + ".wikipedia.org/wiki/", "");
-    return decodeURIComponent(intermediateURL.split("#")[0]);
+    return normalizeWikiTitle(intermediateURL.split("#")[0]);
 
 }
 function checkIfLinkIsWorth(url) {
@@ -69,6 +84,28 @@ function applyColorToLink(link,color) {
     }
 }
 
+function removeUnderline(link) {
+    link.style.textDecoration = "none";
+    link.style.textDecorationColor = "";
+    link.style.textDecorationThickness = "";
+}
+
+function shouldRemoveUnderlineForCurrentPageLink(link) {
+    if (!link || !link.href) {
+        return false;
+    }
+
+    var currentPage = new URL(window.location.href);
+    var linkUrl = new URL(link.href, window.location.origin);
+
+    // Keep direct self-links and in-page anchors (sections, citations, reference back-links) unstyled.
+    if (currentPage.origin === linkUrl.origin && currentPage.pathname === linkUrl.pathname) {
+        return true;
+    }
+
+    return false;
+}
+
 async function SPARQLAPI(s, lang = "en") {
     console.log("SPARQL API called with the following:");
     console.log(s);
@@ -95,7 +132,8 @@ async function SPARQLAPI(s, lang = "en") {
 
     // feed sitelinksDict with information
     for (let i = 0; i < data["results"]["bindings"].length; i++) {
-        g_FromLinkNametoSitelinks[data["results"]["bindings"][i]["shorturl"]["value"]] = Number(data["results"]["bindings"][i]["sitelinks"]["value"]);
+        var shortUrl = normalizeWikiTitle(data["results"]["bindings"][i]["shorturl"]["value"]);
+        g_FromLinkNametoSitelinks[shortUrl] = Number(data["results"]["bindings"][i]["sitelinks"]["value"]);
     }
 }
 
@@ -161,7 +199,9 @@ async function MediaWikiAPI(s, lang = "en") {
     if (jsonResult.hasOwnProperty("query")) {
         if (jsonResult["query"].hasOwnProperty("redirects")) {
             for (let i = 0; i < jsonResult["query"]["redirects"].length; i++) {
-                g_redirectDict[jsonResult["query"]["redirects"][i]["from"].replace(/ /g, "_")] = jsonResult["query"]["redirects"][i]["to"].replace(/ /g, "_");
+                var fromTitle = normalizeWikiTitle(jsonResult["query"]["redirects"][i]["from"]);
+                var toTitle = normalizeWikiTitle(jsonResult["query"]["redirects"][i]["to"]);
+                g_redirectDict[fromTitle] = toTitle;
             }
         }
     }
@@ -208,6 +248,7 @@ async function main() {
 
     // obtain the title names
     stringArr = stringArr.map(s => transformURL(s))
+    stringArr.push(transformURL(window.location.href));
 
 
 
@@ -276,6 +317,10 @@ async function main() {
     //  finally, color the links according to their sitelinks
     for (let i = 0; i < links.length; i++) {
         if (links[i].href) {
+            if (shouldRemoveUnderlineForCurrentPageLink(links[i])) {
+                removeUnderline(links[i]);
+                continue;
+            }
 
             // get link title
             var linkTitle = transformURL(links[i].href);
@@ -287,7 +332,7 @@ async function main() {
                 applyColorToLink(links[i],getColorOfNumber(g_FromLinkNametoSitelinks[g_redirectDict[linkTitle]]));
             }
             else {
-                applyColorToLink(links[i],"#808080");
+                removeUnderline(links[i]);
             }
         }
     }
