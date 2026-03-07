@@ -1,10 +1,38 @@
 // global variables declaration
 
+/**
+ * Extracts the Wikipedia language code from a URL, supporting mobile hosts
+ * like `en.m.wikipedia.org`.
+ * @param {string} url URL to parse.
+ * @returns {string} Language code, or "en" fallback.
+ */
+function getWikiLanguageFromUrl(url) {
+    try {
+        var parsedUrl = new URL(url, window.location.origin);
+        var hostParts = (parsedUrl.hostname || "").toLowerCase().split(".").filter(Boolean);
+        var wikipediaIndex = hostParts.indexOf("wikipedia");
+
+        if (wikipediaIndex > 0) {
+            // Mobile host shape: <lang>.m.wikipedia.org
+            if (hostParts[wikipediaIndex - 1] === "m" && wikipediaIndex - 2 >= 0) {
+                return hostParts[wikipediaIndex - 2];
+            }
+            return hostParts[0];
+        }
+    } catch (e) {
+        // Fall through to regex fallback.
+    }
+
+    var match = String(url).match(/^https?:\/\/([a-z-]+)(?:\.m)?\.wikipedia\./i);
+    if (match && match[1]) {
+        return match[1].toLowerCase();
+    }
+
+    return "en";
+}
+
 // get current wikipedia language
-var wikiUrl = window.location.href;
-wikiUrl = wikiUrl.split(".wikipedia")[0];
-wikiUrl = wikiUrl.replace("https://", "");
-var g_wikiLang = wikiUrl
+var g_wikiLang = getWikiLanguageFromUrl(window.location.href);
 console.log(g_wikiLang);
 
 // initialize
@@ -81,7 +109,7 @@ function normalizeWikiTitle(title) {
  */
 function transformURL(url) {
     try {
-        var parsedUrl = new URL(url, window.location.origin);
+        var parsedUrl = new URL(url, window.location.href);
         var path = parsedUrl.pathname || "";
 
         if (path.startsWith("/wiki/")) {
@@ -197,7 +225,7 @@ function checkIfLinkIsWorth(url) {
         return false;
     }
 
-    if (!parsedUrl.href.split("wikipedia")[0].includes(g_wikiLang)) {
+    if (getWikiLanguageFromUrl(parsedUrl.href) !== g_wikiLang) {
         return false
     }
     if (parsedUrl.href.toLowerCase().includes("wikipedia:")) {
@@ -226,9 +254,13 @@ function checkIfLinkIsWorth(url) {
  */
 function applyColorToLink(link,color) {
     if (g_onlyUnderline) {
-        link.style.textDecoration = "underline";
-        link.style.textDecorationColor = color;
-        link.style.textDecorationThickness = "2px";
+        // Mobile Wikipedia styles can suppress default text decorations.
+        // Use !important to enforce a single underline.
+        link.style.setProperty("text-decoration-line", "underline", "important");
+        link.style.setProperty("text-decoration-color", color, "important");
+        link.style.setProperty("text-decoration-thickness", "2px", "important");
+        link.style.setProperty("text-decoration-style", "solid", "important");
+        link.style.setProperty("text-underline-offset", "0.08em", "important");
     }
     else {
         link.style.color = color;
@@ -241,9 +273,11 @@ function applyColorToLink(link,color) {
  * @returns {void}
  */
 function removeUnderline(link) {
-    link.style.textDecoration = "none";
-    link.style.textDecorationColor = "";
-    link.style.textDecorationThickness = "";
+    link.style.setProperty("text-decoration-line", "none", "important");
+    link.style.removeProperty("text-decoration-color");
+    link.style.removeProperty("text-decoration-thickness");
+    link.style.removeProperty("text-decoration-style");
+    link.style.removeProperty("text-underline-offset");
 }
 
 /**
@@ -337,8 +371,11 @@ async function runAPIinBins(APIFunction, stringArr, separatorLeft, separatorRigh
     var tasks = [];
 
     if (numberOfItemsOrStringSize == "numberOfItems") {
-        for (let i = 0; i < (stringArr.length / binSize) + 1; i++) {
-            var tempArr = stringArr.slice(i * binSize, (i + 1) * binSize);
+        for (let i = 0; i < stringArr.length; i += binSize) {
+            var tempArr = stringArr.slice(i, i + binSize);
+            if (tempArr.length === 0) {
+                continue;
+            }
             console.log("This is tempArr");
             console.log(tempArr);
 
@@ -349,13 +386,18 @@ async function runAPIinBins(APIFunction, stringArr, separatorLeft, separatorRigh
         }
     }
     if (numberOfItemsOrStringSize == "stringSize") {
-        while (stringArr.length != 0) {
-            var element = ""
-            while (element.length < binSize) {
+        while (stringArr.length > 0) {
+            var element = "";
+            while (stringArr.length > 0 && element.length < binSize) {
                 var appendy = stringArr.shift();
+                if (appendy === undefined || appendy === null || appendy === "") {
+                    continue;
+                }
                 element += separatorLeft + appendy + separatorRight;
             }
-            tasks.push(() => APIFunction(element, g_wikiLang));
+            if (element.length > 0) {
+                tasks.push(() => APIFunction(element, g_wikiLang));
+            }
         }
     }
 
@@ -452,9 +494,13 @@ async function main() {
     arr = arr.filter(link => !link.href.toLowerCase().includes("/wiki/main_page"));
     arr = arr.filter(link => !link.href.toLowerCase().includes("/wiki/contents"));
 
-    // filter out navigation links based on parent element classes
+    // filter out desktop navigation links; mobile layouts reuse some class names
+    // for real content containers, so skip this filter on mobile browsers.
     arr = arr.filter(link => {
-        const parent = link.closest('.mw-sidebar, .vector-menu-portal, .vector-pinnable-container, .mw-portlet');
+        if (g_isMobileBrowser) {
+            return true;
+        }
+        const parent = link.closest('.mw-sidebar, #mw-panel, .vector-menu-portal, .vector-pinnable-container');
         return !parent;
     });
 
@@ -472,6 +518,7 @@ async function main() {
     // obtain the title names
     stringArr = stringArr.map(s => transformURL(s))
     stringArr.push(transformURL(window.location.href));
+    stringArr = [...new Set(stringArr)].filter(Boolean);
 
 
 
@@ -479,10 +526,15 @@ async function main() {
     console.log("this is the titlename array");
     console.log(stringArr);
 
-    // run all items through the SPARQL - API, splitted in bins because of request length limitations
+    // run only unresolved items through the SPARQL API (global caches persist across reruns)
+    var unresolvedTitles = stringArr.filter(title =>
+        !g_FromLinkNametoSitelinks.hasOwnProperty(title) && !g_redirectDict.hasOwnProperty(title)
+    );
 
-    var sparqlArr = stringArr.map(s => encodeWikiTitleForSparqlPath(s));
-    await runAPIinBins(SPARQLAPI, sparqlArr, '"', '" ', "stringSize", g_sparqlBinSize, g_apiConcurrency);
+    var sparqlArr = unresolvedTitles.map(s => encodeWikiTitleForSparqlPath(s));
+    if (sparqlArr.length > 0) {
+        await runAPIinBins(SPARQLAPI, sparqlArr, '"', '" ', "stringSize", g_sparqlBinSize, g_apiConcurrency);
+    }
 
 
     // run all items through the MediaWiki - API, splitted in bins of 50 because of request length limitations
@@ -518,7 +570,7 @@ async function main() {
         // get link title
         var linkTitle = transformURL(links[i].href);
 
-        if (!(g_FromLinkNametoSitelinks.hasOwnProperty(linkTitle)) & stringArr.includes(linkTitle)) {
+        if (!(g_FromLinkNametoSitelinks.hasOwnProperty(linkTitle)) && stringArr.includes(linkTitle)) {
             uniqueTitles.add(linkTitle);
         }
 
@@ -530,14 +582,20 @@ async function main() {
     console.log(g_missingDataLinksArr);
 
     // run MediaWikiAPI to get redirections
-    await runAPIinBins(MediaWikiAPI, g_missingDataLinksArr, "|", "", "numberOfItems", g_mediaWikiBinSize, g_apiConcurrency);
+    if (g_missingDataLinksArr.length > 0) {
+        await runAPIinBins(MediaWikiAPI, g_missingDataLinksArr, "|", "", "numberOfItems", g_mediaWikiBinSize, g_apiConcurrency);
+    }
 
     console.log("This is redirectDict");
     console.log(g_redirectDict);
 
     // run SPARQL API again on redirected
-    var newSPARQLList = Object.values(g_redirectDict).map(s => encodeWikiTitleForSparqlPath(s));
-    await runAPIinBins(SPARQLAPI, newSPARQLList, '"', '" ', "stringSize", g_sparqlBinSize, g_apiConcurrency);
+    var newSPARQLList = Object.values(g_redirectDict)
+        .filter(title => !g_FromLinkNametoSitelinks.hasOwnProperty(title))
+        .map(s => encodeWikiTitleForSparqlPath(s));
+    if (newSPARQLList.length > 0) {
+        await runAPIinBins(SPARQLAPI, newSPARQLList, '"', '" ', "stringSize", g_sparqlBinSize, g_apiConcurrency);
+    }
 
     // merge new results with SPARQL API result
 
@@ -602,4 +660,57 @@ async function main() {
 }
 
 
-main();
+var g_mainIsRunning = false;
+var g_mainPendingRun = false;
+
+/**
+ * Runs main with overlap protection; if called while running, queues one rerun.
+ * @returns {Promise<void>}
+ */
+async function runMainSafely() {
+    if (g_mainIsRunning) {
+        g_mainPendingRun = true;
+        return;
+    }
+
+    g_mainIsRunning = true;
+    try {
+        await main();
+    } catch (e) {
+        console.error("[WikiLinkColor] main() failed:", e);
+    } finally {
+        g_mainIsRunning = false;
+        if (g_mainPendingRun) {
+            g_mainPendingRun = false;
+            setTimeout(runMainSafely, 100);
+        }
+    }
+}
+
+/**
+ * Schedules initial and follow-up runs to handle mobile content hydration.
+ * @returns {void}
+ */
+function scheduleRuns() {
+    runMainSafely();
+    setTimeout(runMainSafely, 1200);
+    setTimeout(runMainSafely, 4000);
+    setTimeout(runMainSafely, 9000);
+
+    if (document.body && typeof MutationObserver !== "undefined") {
+        var observerDebounce = null;
+        var observer = new MutationObserver(() => {
+            clearTimeout(observerDebounce);
+            observerDebounce = setTimeout(runMainSafely, 700);
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+        setTimeout(() => observer.disconnect(), 15000);
+    }
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", scheduleRuns, { once: true });
+} else {
+    scheduleRuns();
+}
