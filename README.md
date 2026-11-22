@@ -1,5 +1,30 @@
 # mozilla-addon-important-pages
 
+## Wikivoyage checkpoint
+
+On English Wikivoyage, numbered listings under **See** (including its subsections)
+now have their names colored using the same Wikidata sitelink counts and six color
+tiers as Wikipedia. For example, **Palermo Cathedral** on
+[Palermo](https://en.wikivoyage.org/wiki/Palermo#See) uses Wikidata item `Q1478407`.
+Both linked names and plain-text names are supported. The listing's Wikidata item
+is preferred; an explicit Wikipedia sister link is used as a fallback, including
+redirect resolution. Entries without a usable reference or returned count retain
+their existing appearance. Other sections and the page heading are unchanged.
+
+Wikipedia retains its existing link underlines and headline styling.
+
+### Local checks
+
+Load `manifest.json` as a temporary add-on in Firefox's
+`about:debugging#/runtime/this-firefox`. Reload the extension and refresh an article
+after editing. Check Palermo's **See** listings against their Wikipedia articles,
+then verify that **Eat**, map markers, and description links retain their styling.
+
+For deterministic regression checks, run `python3 -m http.server 8000` from the
+repository root and open
+[the browser checks](http://localhost:8000/tests/wikivoyage.html). All checks should
+pass. They use real DOM fixtures and mocked API responses without dependencies.
+
 Ever browsed through wikipedia, ran down a rabbit hole and became more and more disoriented by the amount of links shown on a wikipedia page?
 
 Which of these links are important?
@@ -35,7 +60,6 @@ The coloring rules are similar to that of item rarity coloring of recent MMO's. 
 ![grafik](https://user-images.githubusercontent.com/65167682/236010173-d56804ca-731e-438e-836c-0d28c0d8e363.png) TIER 5
 
 ![grafik](https://user-images.githubusercontent.com/65167682/236010297-4d831fd0-d622-42a9-9197-6acce8c1b5c3.png) ERROR - something went wrong with fetching the data needed (mostly happens because of internal wikipedia redirects)
-
 
 
 

@@ -4,16 +4,16 @@
 
 This repository contains a small Firefox extension that colors Wikipedia links and article headings according to Wikidata sitelink counts.
 
-- `go.js` is the sole content script. It collects links, normalizes titles, queries Wikidata and MediaWiki, resolves redirects, and applies styling.
+- `go.js` handles Wikipedia links, title normalization, API queries, redirects, and styling. `wikivoyage.js` colors numbered English Wikivoyage **See** listing names. `colors.js` provides their shared color tiers.
 - `manifest.json` defines the Manifest V3 extension, Wikipedia URL matches, permissions, version, and Firefox extension ID.
 - `README.md` explains the color tiers using externally hosted screenshots.
-- ZIP archives are distribution artifacts and are ignored by `.gitignore`. There are no separate source, asset, or test directories.
+- `tests/` contains browser regression fixtures. ZIP distribution artifacts are ignored by `.gitignore`. Source files remain at the repository root.
 
 ## Build, Test, and Development Commands
 
 There is no package manager configuration, build pipeline, or dependency installation step. Edit the root files directly.
 
-- `node --check go.js`: check JavaScript syntax if Node.js is installed; this does not execute browser APIs.
+- `node --check go.js` (also `colors.js` and `wikivoyage.js`): check JavaScript syntax if Node.js is installed; this does not execute browser APIs.
 - `python3 -m json.tool manifest.json > /dev/null`: validate manifest JSON syntax if Python 3 is installed.
 - For local development, open Firefox’s `about:debugging#/runtime/this-firefox`, select **Load Temporary Add-on**, and choose `manifest.json`. Reload the extension after edits, then refresh the Wikipedia page.
 
@@ -23,7 +23,7 @@ Use four-space indentation in JavaScript and two-space indentation in JSON. Foll
 
 ## Testing Guidelines
 
-There is no automated test framework or coverage threshold. Perform manual Firefox checks on English and non-English articles, redirects, percent-encoded titles, Unicode titles, self-links, section anchors, and navigation links. Verify link colors and headline borders, and inspect console output and API failures. Include reproduction URLs and observed results in the pull request.
+Run `python3 -m http.server 8000` and open `http://localhost:8000/tests/wikivoyage.html` for dependency-free DOM regression checks with mocked APIs. There is no coverage threshold. Also check Firefox on English/non-English Wikipedia articles, redirects, encoded/Unicode titles, self-links, anchors, and navigation links. Verify Palermo's Wikivoyage listing colors and inspect API failures. Include reproduction URLs and results in the pull request.
 
 ## Commit & Pull Request Guidelines
 

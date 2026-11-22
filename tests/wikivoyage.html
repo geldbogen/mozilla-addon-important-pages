@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Wikivoyage regression checks</title>
+<style>
+    body { font: 16px system-ui; max-width: 900px; margin: 2rem auto; }
+    .pass { color: #17692a; }
+    .fail { color: #ad1520; }
+</style>
+<h1>Wikivoyage regression checks</h1>
+<p>These checks use local fixtures and mocked API responses; no Wikimedia requests are sent.</p>
+<ol id="results"></ol>
+<div id="fixture"></div>
+<script src="../colors.js"></script>
+<script src="../wikivoyage.js"></script>
+<script src="wikivoyage.test.js"></script>
+</html>
