@@ -17,7 +17,11 @@
   "content_scripts": [
     {
       "matches": ["*://*.wikipedia.org/*"],
-      "js": ["go.js"]
+      "js": ["colors.js", "go.js"]
+    },
+    {
+      "matches": ["*://en.wikivoyage.org/*"],
+      "js": ["colors.js", "wikivoyage.js"]
     }
   ],
   "permissions": [
